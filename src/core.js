@@ -32,7 +32,7 @@ export function normalizeConfig(input = {}) {
     declaredContext,
     timeoutMs,
     runDshAgent: input.runDshAgent !== false,
-    dshProfile: String(input.dshProfile || 'sdk-minimal'),
+    dshProfile: String(input.dshProfile || 'sdk'),
     reasoningEffort: input.reasoningEffort ? String(input.reasoningEffort) : undefined,
   }
 }
