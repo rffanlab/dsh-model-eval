@@ -1,0 +1,4 @@
+# Installing dsh-model-eval activates the Host evaluation service and Web UI.
+- insert:
+    - id: dsh-model-eval
+      name: 'dsh-model-eval'
