@@ -1,0 +1,71 @@
+{
+  "name": "dsh-model-eval",
+  "version": "0.1.0",
+  "description": "One-click model acceptance testing for DeepSeek Harness: endpoint probing, deterministic cases, DSH agent cases, artifacts, reports and regression-ready run records.",
+  "type": "module",
+  "main": "./src/plugin.js",
+  "exports": {
+    ".": "./src/plugin.js",
+    "./client": "./lib/client.js",
+    "./core": "./src/core.js",
+    "./engine": "./src/engine.js",
+    "./report": "./src/report.js",
+    "./artifacts": "./src/artifacts.js",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "dsh-model-eval": "./bin/dsh-model-eval.mjs"
+  },
+  "files": [
+    "src/**/*.js",
+    "lib/client.js",
+    "python/*.py",
+    "bin/*.mjs",
+    "docs/**/*.md",
+    "cordis.patch.yml",
+    "README.md",
+    "README.en.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check src/core.js && node --check src/http.js && node --check src/artifacts.js && node --check src/report.js && node --check src/engine.js && node --check src/plugin.js && node --check lib/client.js && node --check bin/dsh-model-eval.mjs",
+    "packcheck": "npm pack --dry-run --json"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rffanlab/dsh-model-eval.git"
+  },
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "evaluation",
+    "benchmark",
+    "agent",
+    "llm",
+    "openai-compatible",
+    "multimodal",
+    "artifacts"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings-plugins",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-session",
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-api-remotes"
+      ]
+    }
+  }
+}
