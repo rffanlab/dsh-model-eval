@@ -268,6 +268,8 @@ export class EvalEngine {
       profile: config.dshProfile,
       baseUrl: config.baseUrl,
       apiKey: config.apiKey,
+      protocol: run.protocol,
+      declaredContext: config.declaredContext,
       model: run.model,
       reasoningEffort: config.reasoningEffort,
       maxTokens: 8192,
