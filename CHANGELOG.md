@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.2
+
+- Fix first-run protocol probing for MiniMax and stricter OpenAI-compatible gateways.
+- Try a minimal request first, then probe token-limit and temperature fields independently.
+- Probe both `/chat/completions` and MiniMax-compatible `/text/chatcompletion_v2`; reuse the path that actually passed.
+- Resolve explicit model display spellings against `/models` only when there is one unambiguous canonical match; never select the catalog's first model for an explicit request.
+- Add MiniMax regression coverage for `MiniMax M3.1-Flash-Preview` → `MiniMax-M3.1-Flash-Preview`.
+- Separate invalid model, authentication, route/protocol, and capability failures in diagnostics.
+- Pass the probed token field into the isolated DSH `llm-pi-ai` provider.
+- Show requested model, selected model, API-reported model, successful path, and every protocol attempt in the Web UI.
+
 ## 0.1.0
 
 - Initial runnable evaluation engine.
