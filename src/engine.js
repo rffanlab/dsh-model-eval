@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { collectArtifacts } from './artifacts.js'
-import { byCategory, classifyFailure, judgeExact, judgeJson, normalizeConfig, redactConfig, scoreCases, suiteCases } from './core.js'
+import { byCategory, classifyFailure, judgeExact, judgeJson, normalizeConfig, redactConfig, resolveRequestedModel, sameModelIdentity, scoreCases, suiteCases } from './core.js'
 import { callModel, discoverModels, probeProtocol, serializeError } from './http.js'
 import { writeReports } from './report.js'
 
@@ -128,19 +128,9 @@ export class EvalEngine {
   async execute(run, runDir, config, signal, onUpdate) {
     run.phase = 'endpoint-discovery'
     run.discovery = await discoverModels(config, signal)
-    if (config.model === 'auto') {
-      run.model = run.discovery.models[0] || null
-      run.modelSelection = { mode: 'auto', requested: 'auto', selected: run.model, discovered: run.discovery.models }
-      if (!run.model) throw new Error('Model ID is required because /models returned no usable model')
-    } else {
-      run.model = config.model
-      run.modelSelection = { mode: 'explicit', requested: config.model, selected: config.model, discovered: run.discovery.models }
-      if (run.model !== config.model) {
-        const error = new Error(`Explicit model selection mismatch: requested ${config.model}, selected ${run.model}`)
-        error.code = 'MODEL_SELECTION_MISMATCH'
-        throw error
-      }
-    }
+    run.modelSelection = resolveRequestedModel(config.model, run.discovery.models)
+    run.model = run.modelSelection.selected
+    if (!run.model) throw new Error('Model ID is required because /models returned no usable model')
     await this.persist(run, runDir, onUpdate)
 
     run.phase = 'protocol-probe'
@@ -158,10 +148,12 @@ export class EvalEngine {
     const successfulProbe = run.protocolProbe.attempts.find(attempt => attempt.ok)
     const reportedModel = successfulProbe?.responseModel
     run.modelSelection = { ...(run.modelSelection || {}), apiReportedModel: reportedModel || null }
-    if (config.model !== 'auto' && reportedModel && reportedModel !== config.model) {
-      const error = new Error(`API model mismatch: requested ${config.model}, response reported ${reportedModel}`)
-      error.code = 'MODEL_RESPONSE_MISMATCH'
-      throw error
+    if (reportedModel && !sameModelIdentity(reportedModel, run.model)) {
+      run.modelSelection.responseMismatch = {
+        requested: config.model,
+        selected: run.model,
+        reported: reportedModel,
+      }
     }
     await this.persist(run, runDir, onUpdate)
 
