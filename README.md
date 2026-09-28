@@ -8,7 +8,7 @@
 
 ## 当前版本
 
-**0.1.1**：首轮实机反馈修正版。
+**0.1.2**：MiniMax / OpenAI-compatible 实机兼容修正版。
 
 已经实现：
 
@@ -18,6 +18,8 @@
 - 显式 Model ID 强制优先，只有 `auto` 才允许选择 `/models` 第一项；
 - 报告分别显示“请求模型 / 实际选择 / API 响应 model”，网关改写模型会直接中止；
 - 协议探测采用最小请求逐级探测 `max_completion_tokens / max_tokens / temperature` 兼容性；
+- 自动探测并固定实际成功的 `/chat/completions` 或 MiniMax `/text/chatcompletion_v2` 路径；
+- Model ID 若与 `/models` 存在唯一的大小写/空格/连字符规范化匹配，会明确显示映射后使用 API 目录中的真实 ID；
 - Smoke / Standard / Full 三档套件；
 - 严格指令、严格 JSON、工具调用、延迟样本；
 - 4K ～ 128K 估算上下文召回（Full 按声明 Context 自动截顶）；
