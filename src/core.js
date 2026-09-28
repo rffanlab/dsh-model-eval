@@ -164,8 +164,10 @@ export function classifyFailure(error) {
   const status = Number(error?.status || error?.statusCode || error?.response?.status)
   const code = String(error?.code || '')
   const message = String(error?.message || error || '')
+  if (code === 'MODEL_NOT_FOUND') return 'MODEL_NOT_FOUND'
+  if (code === 'PROTOCOL_COMPAT') return 'PROTOCOL_COMPAT'
   if (status === 401 || status === 403) return 'API_AUTH'
-  if (status === 404) return 'API_ENDPOINT_NOT_FOUND'
+  if (status === 404) return /model/i.test(message) ? 'MODEL_NOT_FOUND' : 'API_ENDPOINT_NOT_FOUND'
   if (status === 429) return 'RATE_LIMIT'
   if (status >= 500) return 'SERVICE_5XX'
   if (/timeout|timed out|abort/i.test(message) || code === 'ABORT_ERR') return 'TIMEOUT'
