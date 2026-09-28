@@ -9,7 +9,7 @@ import { EvalEngine } from '../src/engine.js'
 function fakeServer() {
   return http.createServer(async (req,res)=>{
     if(req.method==='GET' && req.url==='/v1/models') {
-      res.setHeader('content-type','application/json');res.end(JSON.stringify({data:[{id:'gpt-5.4'},{id:'wanted-model'}]}));return
+      res.setHeader('content-type','application/json');res.end(JSON.stringify({data:[{id:'gpt-5.4'},{id:'MiniMax-M3.1-Flash-Preview'}]}));return
     }
     if(req.method==='POST' && req.url==='/v1/chat/completions') {
       let raw='';for await(const chunk of req) raw+=chunk
@@ -38,15 +38,15 @@ test('engine performs end-to-end standard evaluation and writes reports', async 
   t.after(()=>server.close())
   const port=server.address().port
   const engine=new EvalEngine({rootDir:root})
-  const {id}=await engine.start({baseUrl:`http://127.0.0.1:${port}/v1`,model:'wanted-model',suite:'standard',runDshAgent:false,timeoutMs:5000})
+  const {id}=await engine.start({baseUrl:`http://127.0.0.1:${port}/v1`,model:'MiniMax M3.1-Flash-Preview',suite:'standard',runDshAgent:false,timeoutMs:5000})
   const active=engine.active.get(id)
   if(active?.promise) await active.promise
   const run=JSON.parse(await readFile(join(root,id,'run.json'),'utf8'))
   assert.equal(run.status,'completed')
-  assert.equal(run.requestedModel,'wanted-model')
-  assert.equal(run.model,'wanted-model')
-  assert.equal(run.modelSelection.mode,'explicit')
-  assert.equal(run.modelSelection.apiReportedModel,'wanted-model')
+  assert.equal(run.requestedModel,'MiniMax M3.1-Flash-Preview')
+  assert.equal(run.model,'MiniMax-M3.1-Flash-Preview')
+  assert.equal(run.modelSelection.mode,'explicit-canonical')
+  assert.equal(run.modelSelection.apiReportedModel,'MiniMax-M3.1-Flash-Preview')
   assert.equal(run.protocol,'openai-completions')
   assert.equal(run.cases.find(x=>x.id==='instruction-exact').status,'passed')
   assert.equal(run.cases.find(x=>x.id==='tool-call').status,'passed')
