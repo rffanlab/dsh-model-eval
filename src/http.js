@@ -100,6 +100,7 @@ export async function callModel(config, { protocol, model, prompt, system, maxTo
       toolChoice: Object.prototype.hasOwnProperty.call(body, 'tool_choice'),
     },
     payload: value,
+    responseModel: typeof value?.model === 'string' ? value.model : null,
     text: extractAssistantText(value, protocol),
     finishReason: finishReasonOf(value, protocol),
     usage: usageOf(value),
@@ -133,6 +134,7 @@ async function probeRequest(config, protocol, model, variant, body, signal) {
       httpOk: true,
       url,
       latencyMs: Math.round(performance.now() - started),
+      responseModel: typeof value?.model === 'string' ? value.model : null,
       responseShape: protocol === 'openai-responses'
         ? { id: typeof value?.id === 'string', output: Array.isArray(value?.output), outputText: typeof value?.output_text === 'string', status: value?.status ?? null }
         : { choices: Array.isArray(value?.choices), finishReason: value?.choices?.[0]?.finish_reason ?? null },
