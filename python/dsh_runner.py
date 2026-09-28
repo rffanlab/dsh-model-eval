@@ -59,13 +59,14 @@ def main():
             "models": [model_profile],
         }
         if protocol == "openai-completions":
-            # The direct endpoint probe already proved max_tokens works. These
-            # conservative switches cover the common self-hosted gateways that
-            # reject developer role / max_completion_tokens.
-            route["compat"] = {
-                "supportsDeveloperRole": False,
-                "maxTokensField": "max_tokens",
-            }
+            # Reuse the exact request-shape fingerprint proven by the direct
+            # protocol probe instead of forcing max_tokens for every gateway.
+            request_compat = payload.get("requestCompat") or {}
+            route_compat = {"supportsDeveloperRole": False}
+            max_tokens_field = request_compat.get("maxTokensField")
+            if max_tokens_field in ("max_tokens", "max_completion_tokens"):
+                route_compat["maxTokensField"] = max_tokens_field
+            route["compat"] = route_compat
         with open(os.path.join(dsh_home, "settings.yaml"), "w", encoding="utf-8") as fh:
             # JSON is valid YAML and avoids adding a PyYAML dependency.
             json.dump({"llm-pi-ai": {"providers": {provider_id: route}}}, fh, ensure_ascii=False, indent=2)
