@@ -278,6 +278,12 @@ export class EvalEngine {
       row.message = 'DSH Agent tests disabled by run configuration.'
       return null
     }
+    if (run.protocol === 'openai-completions' && config.requestCompat?.apiPath && config.requestCompat.apiPath !== '/chat/completions') {
+      row.status = 'skipped'
+      row.failureClass = 'DSH_ADAPTER_PATH_UNSUPPORTED'
+      row.message = `候选 API 只在 ${config.requestCompat.apiPath} 探测成功；当前 DSH llm-pi-ai 的 OpenAI adapter 使用 /chat/completions，因此不伪装成 Agent 能力失败。`
+      return null
+    }
     const available = await this.dshAvailable()
     if (!available.ok) {
       row.status = 'skipped'
