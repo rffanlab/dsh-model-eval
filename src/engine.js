@@ -146,11 +146,23 @@ export class EvalEngine {
     run.phase = 'protocol-probe'
     run.protocolProbe = await probeProtocol(config, run.model, signal)
     if (!run.protocolProbe.ok) {
-      const error = new Error('No supported API protocol passed the probe')
+      const details = run.protocolProbe.attempts
+        .map(attempt => `${attempt.protocol}/${attempt.variant}: ${attempt.error?.message || 'unrecognized response'}`)
+        .join(' | ')
+      const error = new Error(`No supported API protocol passed the probe${details ? `: ${details}` : ''}`)
       error.code = 'PROTOCOL_COMPAT'
       throw error
     }
     run.protocol = run.protocolProbe.protocol
+    config.requestCompat = run.protocolProbe.compat || {}
+    const successfulProbe = run.protocolProbe.attempts.find(attempt => attempt.ok)
+    const reportedModel = successfulProbe?.responseModel
+    run.modelSelection = { ...(run.modelSelection || {}), apiReportedModel: reportedModel || null }
+    if (config.model !== 'auto' && reportedModel && reportedModel !== config.model) {
+      const error = new Error(`API model mismatch: requested ${config.model}, response reported ${reportedModel}`)
+      error.code = 'MODEL_RESPONSE_MISMATCH'
+      throw error
+    }
     await this.persist(run, runDir, onUpdate)
 
     for (const row of run.cases) {
