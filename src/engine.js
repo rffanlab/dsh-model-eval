@@ -136,11 +136,20 @@ export class EvalEngine {
     run.phase = 'protocol-probe'
     run.protocolProbe = await probeProtocol(config, run.model, signal)
     if (!run.protocolProbe.ok) {
-      const details = run.protocolProbe.attempts
-        .map(attempt => `${attempt.protocol}/${attempt.variant}: ${attempt.error?.message || 'unrecognized response'}`)
+      const attempts = run.protocolProbe.attempts || []
+      const details = attempts
+        .map(attempt => `${attempt.protocol} ${attempt.apiPath || ''} ${attempt.variant}: ${attempt.error?.message || 'unrecognized response'}`)
         .join(' | ')
-      const error = new Error(`No supported API protocol passed the probe${details ? `: ${details}` : ''}`)
-      error.code = 'PROTOCOL_COMPAT'
+      const modelError = attempts.find(attempt => /model.{0,20}(not found|invalid|unknown|does not exist|unsupported)|无效.{0,8}模型|模型.{0,8}(不存在|无权限)/i.test(attempt.error?.message || ''))
+      const authError = attempts.find(attempt => [401, 403].includes(attempt.error?.status))
+      const error = new Error(
+        modelError
+          ? `Candidate model was rejected by the API: ${run.model}. ${modelError.error?.message || ''}`
+          : authError
+            ? `API authentication failed: ${authError.error?.message || ''}`
+            : `No supported API protocol passed the probe${details ? `: ${details}` : ''}`
+      )
+      error.code = modelError ? 'MODEL_NOT_FOUND' : authError ? 'API_AUTH' : 'PROTOCOL_COMPAT'
       throw error
     }
     run.protocol = run.protocolProbe.protocol
@@ -286,6 +295,7 @@ export class EvalEngine {
       baseUrl: config.baseUrl,
       apiKey: config.apiKey,
       protocol: run.protocol,
+      requestCompat: config.requestCompat || {},
       declaredContext: config.declaredContext,
       model: run.model,
       reasoningEffort: config.reasoningEffort,
