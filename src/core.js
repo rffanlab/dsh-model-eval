@@ -8,6 +8,12 @@ export function normalizeBaseUrl(value) {
   if (!raw) throw new Error('API Base URL is required')
   const url = new URL(raw)
   if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('API Base URL must use http:// or https://')
+  // Users often paste a complete OpenAI endpoint instead of the API root.
+  // Normalize those common leaf routes back to their base so discovery/probing
+  // never produces /chat/completions/chat/completions.
+  url.pathname = url.pathname.replace(/\/(?:chat\/completions|responses|models)\/?$/i, '') || '/'
+  url.search = ''
+  url.hash = ''
   return url.toString().replace(/\/$/, '')
 }
 
