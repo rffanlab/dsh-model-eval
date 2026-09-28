@@ -92,7 +92,9 @@ export class EvalEngine {
       startedAt: nowIso(),
       completedAt: null,
       config: redactConfig(config),
+      requestedModel: config.model,
       model: null,
+      modelSelection: null,
       protocol: null,
       discovery: null,
       protocolProbe: null,
@@ -126,8 +128,19 @@ export class EvalEngine {
   async execute(run, runDir, config, signal, onUpdate) {
     run.phase = 'endpoint-discovery'
     run.discovery = await discoverModels(config, signal)
-    run.model = config.model === 'auto' ? run.discovery.models[0] || null : config.model
-    if (!run.model) throw new Error('Model ID is required because /models returned no usable model')
+    if (config.model === 'auto') {
+      run.model = run.discovery.models[0] || null
+      run.modelSelection = { mode: 'auto', requested: 'auto', selected: run.model, discovered: run.discovery.models }
+      if (!run.model) throw new Error('Model ID is required because /models returned no usable model')
+    } else {
+      run.model = config.model
+      run.modelSelection = { mode: 'explicit', requested: config.model, selected: config.model, discovered: run.discovery.models }
+      if (run.model !== config.model) {
+        const error = new Error(`Explicit model selection mismatch: requested ${config.model}, selected ${run.model}`)
+        error.code = 'MODEL_SELECTION_MISMATCH'
+        throw error
+      }
+    }
     await this.persist(run, runDir, onUpdate)
 
     run.phase = 'protocol-probe'
