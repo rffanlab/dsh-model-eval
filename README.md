@@ -8,13 +8,16 @@
 
 ## 当前版本
 
-**0.1.0**：第一版可运行骨架。
+**0.1.1**：首轮实机反馈修正版。
 
 已经实现：
 
 - Web UI：设置 → 插件 → **模型评测**；
 - OpenAI Chat Completions / Responses 自动协议探测；
 - `/models` 自动发现；
+- 显式 Model ID 强制优先，只有 `auto` 才允许选择 `/models` 第一项；
+- 报告分别显示“请求模型 / 实际选择 / API 响应 model”，网关改写模型会直接中止；
+- 协议探测采用最小请求逐级探测 `max_completion_tokens / max_tokens / temperature` 兼容性；
 - Smoke / Standard / Full 三档套件；
 - 严格指令、严格 JSON、工具调用、延迟样本；
 - 4K ～ 128K 估算上下文召回（Full 按声明 Context 自动截顶）；
