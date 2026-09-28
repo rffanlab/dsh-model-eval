@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { artifactKind, joinApi, judgeJson, normalizeConfig, scoreCases } from '../src/core.js'
+import { artifactKind, joinApi, judgeJson, normalizeConfig, resolveRequestedModel, scoreCases } from '../src/core.js'
 
 test('normalizeConfig validates and normalizes endpoint', () => {
   const value = normalizeConfig({ baseUrl:'http://127.0.0.1:8001/v1/', suite:'full', declaredContext:'131072' })
@@ -30,4 +30,12 @@ test('scoreCases excludes skipped from denominator', () => {
   const score = scoreCases([{status:'passed'},{status:'failed'},{status:'skipped'}])
   assert.equal(score.scored,2)
   assert.equal(score.passRate,0.5)
+})
+
+
+test('explicit model resolves a unique catalog spelling without selecting the first model', () => {
+  const resolved = resolveRequestedModel('MiniMax M3.1-Flash-Preview', ['gpt-5.4', 'MiniMax-M3.1-Flash-Preview'])
+  assert.equal(resolved.mode, 'explicit-canonical')
+  assert.equal(resolved.requested, 'MiniMax M3.1-Flash-Preview')
+  assert.equal(resolved.selected, 'MiniMax-M3.1-Flash-Preview')
 })
