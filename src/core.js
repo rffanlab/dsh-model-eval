@@ -53,6 +53,45 @@ export function isPlaceholderKey(value) {
   return !key || key === 'EMPTY' || key === 'NONE' || key === 'NULL' || key === '-'
 }
 
+export function modelIdentityKey(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '')
+}
+
+export function sameModelIdentity(a, b) {
+  const left = modelIdentityKey(a)
+  const right = modelIdentityKey(b)
+  return Boolean(left && right && left === right)
+}
+
+export function resolveRequestedModel(requested, discovered = []) {
+  const wanted = String(requested || '').trim() || 'auto'
+  const models = Array.isArray(discovered) ? discovered.filter(Boolean).map(String) : []
+  if (wanted === 'auto') {
+    return { mode: 'auto', requested: wanted, selected: models[0] || null, discovered: models }
+  }
+  const exact = models.find(id => id === wanted)
+  if (exact) return { mode: 'explicit-exact', requested: wanted, selected: exact, discovered: models }
+
+  const caseInsensitive = models.filter(id => id.toLowerCase() === wanted.toLowerCase())
+  if (caseInsensitive.length === 1) {
+    return { mode: 'explicit-canonical', requested: wanted, selected: caseInsensitive[0], discovered: models, reason: 'case-insensitive catalog match' }
+  }
+
+  const normalized = models.filter(id => sameModelIdentity(id, wanted))
+  if (normalized.length === 1) {
+    return { mode: 'explicit-canonical', requested: wanted, selected: normalized[0], discovered: models, reason: 'unique normalized catalog match' }
+  }
+
+  return {
+    mode: models.length ? 'explicit-unmatched' : 'explicit-unverified',
+    requested: wanted,
+    selected: wanted,
+    discovered: models,
+    ...(normalized.length > 1 ? { ambiguousCandidates: normalized } : {}),
+  }
+}
+
+
 export function joinApi(baseUrl, path) {
   const base = String(baseUrl).replace(/\/+$/, '')
   const normalized = path.startsWith('/') ? path : `/${path}`
