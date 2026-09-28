@@ -1,6 +1,6 @@
 {
   "name": "dsh-model-eval",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "One-click model acceptance testing for DeepSeek Harness: endpoint probing, deterministic cases, DSH agent cases, artifacts, reports and regression-ready run records.",
   "type": "module",
   "main": "./src/plugin.js",
