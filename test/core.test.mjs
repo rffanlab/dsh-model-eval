@@ -7,6 +7,7 @@ test('normalizeConfig validates and normalizes endpoint', () => {
   assert.equal(value.baseUrl, 'http://127.0.0.1:8001/v1')
   assert.equal(value.declaredContext, 131072)
   assert.equal(value.suite, 'full')
+  assert.equal(normalizeConfig({ baseUrl:'http://127.0.0.1:8001/v1/chat/completions' }).baseUrl, 'http://127.0.0.1:8001/v1')
 })
 
 test('joinApi avoids duplicated v1', () => {
