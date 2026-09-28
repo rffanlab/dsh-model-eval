@@ -84,10 +84,10 @@ export async function callModel(config, { protocol, model, prompt, system, maxTo
   let url
   let body
   if (protocol === 'openai-responses') {
-    url = joinApi(config.baseUrl, '/responses')
+    url = joinApi(config.baseUrl, compat.apiPath || '/responses')
     body = responsesBody(model, prompt, { system, maxTokens, temperature }, compat)
   } else {
-    url = joinApi(config.baseUrl, '/chat/completions')
+    url = joinApi(config.baseUrl, compat.apiPath || '/chat/completions')
     body = chatBody(model, prompt, { system, maxTokens, temperature, tools, toolChoice }, compat)
   }
   const { value } = await requestJson(url, { method: 'POST', apiKey: config.apiKey, body, timeoutMs: config.timeoutMs, signal })
@@ -121,14 +121,15 @@ function shapeOk(value, protocol) {
   return Array.isArray(value?.choices)
 }
 
-async function probeRequest(config, protocol, model, variant, body, signal) {
-  const url = joinApi(config.baseUrl, protocol === 'openai-responses' ? '/responses' : '/chat/completions')
+async function probeRequest(config, protocol, model, apiPath, variant, body, signal) {
+  const url = joinApi(config.baseUrl, apiPath)
   const started = performance.now()
   try {
     const { value } = await requestJson(url, { method: 'POST', apiKey: config.apiKey, body, timeoutMs: config.timeoutMs, signal })
     const ok = shapeOk(value, protocol)
     return {
       protocol,
+      apiPath,
       variant,
       ok,
       httpOk: true,
@@ -144,6 +145,7 @@ async function probeRequest(config, protocol, model, variant, body, signal) {
   } catch (error) {
     return {
       protocol,
+      apiPath,
       variant,
       ok: false,
       httpOk: false,
@@ -154,33 +156,32 @@ async function probeRequest(config, protocol, model, variant, body, signal) {
   }
 }
 
-async function probeChatCompletions(config, model, signal) {
+async function probeChatPath(config, model, apiPath, signal) {
   const prompt = '只回复 MODEL_EVAL_PROTOCOL_OK'
   const base = { model, messages: [{ role: 'user', content: prompt }] }
   const attempts = []
 
-  // First prove the protocol with the smallest legal request. Do not make
-  // temperature or token-limit support a prerequisite for protocol support.
-  const minimal = await probeRequest(config, 'openai-completions', model, 'minimal', base, signal)
+  // Start with the smallest request. Some gateways require stream=false
+  // explicitly, so try that before assuming the endpoint is incompatible.
+  const minimal = await probeRequest(config, 'openai-completions', model, apiPath, 'minimal', base, signal)
   attempts.push(minimal)
-  if (!minimal.ok) {
-    for (const [variant, field] of [['max_completion_tokens', 'max_completion_tokens'], ['max_tokens', 'max_tokens']]) {
-      const attempt = await probeRequest(config, 'openai-completions', model, variant, { ...base, [field]: 32 }, signal)
-      attempts.push(attempt)
-      if (attempt.ok) return { ok: true, protocol: 'openai-completions', attempts, compat: { maxTokensField: field, supportsTemperature: false } }
-    }
-    return { ok: false, protocol: 'openai-completions', attempts }
+  let accepted = minimal
+  if (!accepted.ok) {
+    const explicitNonStream = await probeRequest(config, 'openai-completions', model, apiPath, 'minimal+stream:false', { ...base, stream: false }, signal)
+    attempts.push(explicitNonStream)
+    accepted = explicitNonStream
   }
+  if (!accepted.ok) return { ok: false, protocol: 'openai-completions', attempts }
 
   let maxTokensField = null
   for (const field of ['max_completion_tokens', 'max_tokens']) {
-    const attempt = await probeRequest(config, 'openai-completions', model, `cap:${field}`, { ...base, [field]: 32 }, signal)
+    const attempt = await probeRequest(config, 'openai-completions', model, apiPath, `cap:${field}`, { ...base, [field]: 32 }, signal)
     attempts.push(attempt)
     if (attempt.ok) { maxTokensField = field; break }
   }
 
   const capBody = maxTokensField ? { ...base, [maxTokensField]: 32 } : base
-  const temperature = await probeRequest(config, 'openai-completions', model, 'temperature:0', { ...capBody, temperature: 0 }, signal)
+  const temperature = await probeRequest(config, 'openai-completions', model, apiPath, 'temperature:0', { ...capBody, temperature: 0 }, signal)
   attempts.push(temperature)
 
   return {
@@ -188,34 +189,48 @@ async function probeChatCompletions(config, model, signal) {
     protocol: 'openai-completions',
     attempts,
     compat: {
+      apiPath,
       ...(maxTokensField ? { maxTokensField } : { omitMaxTokens: true }),
       supportsTemperature: temperature.ok,
     },
   }
 }
 
+async function probeChatCompletions(config, model, signal) {
+  const attempts = []
+  // Standard OpenAI route first. MiniMax deployments have also historically
+  // exposed text/chatcompletion_v2 with an OpenAI-like message schema.
+  for (const apiPath of ['/chat/completions', '/text/chatcompletion_v2']) {
+    const result = await probeChatPath(config, model, apiPath, signal)
+    attempts.push(...result.attempts)
+    if (result.ok) return { ...result, attempts }
+  }
+  return { ok: false, protocol: 'openai-completions', attempts }
+}
+
 async function probeResponses(config, model, signal) {
   const base = { model, input: '只回复 MODEL_EVAL_PROTOCOL_OK' }
   const attempts = []
-  const minimal = await probeRequest(config, 'openai-responses', model, 'minimal', base, signal)
+  const minimal = await probeRequest(config, 'openai-responses', model, '/responses', 'minimal', base, signal)
   attempts.push(minimal)
   if (!minimal.ok) {
-    const capped = await probeRequest(config, 'openai-responses', model, 'max_output_tokens', { ...base, max_output_tokens: 32 }, signal)
+    const capped = await probeRequest(config, 'openai-responses', model, '/responses', 'max_output_tokens', { ...base, max_output_tokens: 32 }, signal)
     attempts.push(capped)
     if (!capped.ok) return { ok: false, protocol: 'openai-responses', attempts }
-    return { ok: true, protocol: 'openai-responses', attempts, compat: { supportsTemperature: false } }
+    return { ok: true, protocol: 'openai-responses', attempts, compat: { apiPath: '/responses', supportsTemperature: false } }
   }
 
-  const cap = await probeRequest(config, 'openai-responses', model, 'max_output_tokens', { ...base, max_output_tokens: 32 }, signal)
+  const cap = await probeRequest(config, 'openai-responses', model, '/responses', 'max_output_tokens', { ...base, max_output_tokens: 32 }, signal)
   attempts.push(cap)
   const capBody = cap.ok ? { ...base, max_output_tokens: 32 } : base
-  const temperature = await probeRequest(config, 'openai-responses', model, 'temperature:0', { ...capBody, temperature: 0 }, signal)
+  const temperature = await probeRequest(config, 'openai-responses', model, '/responses', 'temperature:0', { ...capBody, temperature: 0 }, signal)
   attempts.push(temperature)
   return {
     ok: true,
     protocol: 'openai-responses',
     attempts,
     compat: {
+      apiPath: '/responses',
       omitMaxOutputTokens: !cap.ok,
       supportsTemperature: temperature.ok,
     },
